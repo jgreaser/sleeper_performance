@@ -13,6 +13,10 @@ from components.performance_chart import display_performance_chart, display_comp
 from components.head_to_head import display_head_to_head_summary
 from components.matchup_table import display_matchup_table
 from components.career_summary import format_stat, display_career_summary
+from utils.data_cache import (
+    get_user_performance_optimized,
+    analyze_head_to_head_optimized
+)
 
 def get_user_performance(username):
     """Get performance data for a user"""
@@ -89,72 +93,45 @@ def get_user_performance(username):
     
     return pd.DataFrame(performance_data)
 
-def analyze_head_to_head(league_ids, user_id, opponent_id):
+def display_debug_info(debug_data, username, opponent_name):
+    """Display debug information for playoff detection"""
+    st.markdown("### Debug Information - Playoff Detection")
+    st.markdown(f"Analyzing matchups between **{username}** and **{opponent_name}**")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Total Leagues", debug_data['total_leagues_checked'])
+    with col2:
+        st.metric("Leagues with Playoffs", debug_data['leagues_with_playoffs'])
+    with col3:
+        st.metric("Playoff Matchups Found", len(debug_data['playoff_matchups_found']))
+    
+    if debug_data['playoff_matchups_found']:
+        st.markdown("#### Found Playoff Matchups:")
+        for match in debug_data['playoff_matchups_found']:
+            st.markdown(f"""
+            - Season: {match['season']}
+              - League: {match['league']}
+              - Round: {match['round']}
+            """)
+    else:
+        st.warning("No playoff matchups were found between these users")
+
+def analyze_head_to_head(league_ids, user_id, opponent_id, username, opponent_name):
     """Analyze head-to-head matchups between two users"""
     matchup_history = []
+    debug_info = {
+        'total_leagues_checked': len(league_ids),
+        'leagues_with_playoffs': 0,
+        'playoff_brackets_found': [],
+        'playoff_matchups_found': []
+    }
     
-    for league_id in league_ids:
-        league_data = get_league_data(league_id)
-        if not league_data:
-            continue
-            
-        # Get roster data to map user_ids to roster_ids
-        rosters = get_rosters(league_id)
-        if not rosters:
-            continue
-            
-        # Create mapping of user_id to roster_id
-        user_to_roster = {
-            roster['owner_id']: roster['roster_id']
-            for roster in rosters
-            if roster.get('owner_id')
-        }
-        
-        # Get roster IDs for both users
-        user_roster_id = user_to_roster.get(user_id)
-        opponent_roster_id = user_to_roster.get(opponent_id)
-        
-        if not user_roster_id or not opponent_roster_id:
-            continue
-            
-        season = league_data['season']
-        reg_season_weeks = league_data.get('settings', {}).get('playoff_week_start', 14)
-        
-        # Check each week
-        for week in range(1, reg_season_weeks):
-            matchups = get_matchups_for_week(league_id, week)
-            if not matchups:
-                continue
-                
-            # Group matchups by matchup_id
-            matchup_groups = {}
-            for matchup in matchups:
-                if matchup.get('matchup_id'):
-                    if matchup['matchup_id'] not in matchup_groups:
-                        matchup_groups[matchup['matchup_id']] = []
-                    matchup_groups[matchup['matchup_id']].append(matchup)
-            
-            # Find matchup where both users are involved
-            for matchup_id, matchup_pair in matchup_groups.items():
-                if len(matchup_pair) != 2:  # Skip if not exactly 2 teams
-                    continue
-                    
-                roster_ids = [m['roster_id'] for m in matchup_pair]
-                if user_roster_id in roster_ids and opponent_roster_id in roster_ids:
-                    # Found a head-to-head matchup
-                    user_score = next(m['points'] for m in matchup_pair if m['roster_id'] == user_roster_id)
-                    opp_score = next(m['points'] for m in matchup_pair if m['roster_id'] == opponent_roster_id)
-                    
-                    matchup_history.append({
-                        'Season': season,
-                        'Week': week,
-                        'League': league_data['name'],
-                        'User Score': round(float(user_score), 2) if user_score is not None else 0,
-                        'Opponent Score': round(float(opp_score), 2) if opp_score is not None else 0,
-                        'Result': 'Win' if user_score > opp_score else 'Loss' if user_score < opp_score else 'Tie'
-                    })
-    
-    return pd.DataFrame(matchup_history)
+    # Place debug info display before processing matchups
+    st.markdown("---")  # Add separator
+    display_debug_info(debug_info, username, opponent_name)
+    st.markdown("---")  # Add separator
 
 def get_manager_mapping(league_ids):
     """Get mapping of user_ids to their most recent display names"""
@@ -182,8 +159,10 @@ st.title("Historic Performance Analysis")
 username = st.text_input("Enter your Sleeper username:")
 
 if username:
-    performance_df = get_user_performance(username)
-    
+    #performance_df = get_user_performance(username)
+    performance_df = get_user_performance_optimized(username)
+
+
     if performance_df is not None and not performance_df.empty:
         # Display career summary first
 
@@ -264,7 +243,7 @@ if username:
                                               username, selected_manager_name)
 
                 # Then display head-to-head analysis
-                h2h_df = analyze_head_to_head(
+                h2h_df = analyze_head_to_head_optimized(
                     filtered_df['league_id'].unique(),
                     user_id,
                     selected_manager_id
