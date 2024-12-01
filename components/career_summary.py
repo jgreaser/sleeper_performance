@@ -1,5 +1,6 @@
 import streamlit as st
 
+
 def format_stat(count, total):
     """Format a stat with its percentage of total"""
     if total == 0:
@@ -14,10 +15,12 @@ def display_career_summary(filtered_df):
     
     # Championships section
     championship_col1, championship_col2 = st.columns([1, 4])
+
     with championship_col1:
+        championships = filtered_df['Is Champion'].sum()  # Get actual championship count
         st.metric(
             "Championships 👑",
-            format_stat(0, total_seasons),  # Replace 0 with actual championships count
+            format_stat(championships, total_seasons),
             help="League Championships won"
         )
 

@@ -26,11 +26,16 @@ def get_user_performance(username):
         leagues = get_user_leagues(user_id, str(season))
         if leagues:
             for league in leagues:
-                league_id = league['league_id']
-                rosters = get_rosters(league_id)
-                users = get_users(league_id)
-                
-                if rosters and users:
+                try:  # Add try/except block for better error handling
+                    league_id = league['league_id']
+                    rosters = get_rosters(league_id)
+                    users = get_users(league_id)
+                    league_data = get_league_data(league_id)
+                    
+                    # Skip this league if we don't have all required data
+                    if not all([rosters, users, league_data]):
+                        continue
+                    
                     user_roster = next((r for r in rosters if r['owner_id'] == user_id), None)
                     if user_roster:
                         wins = user_roster['settings'].get('wins', 0)
@@ -43,6 +48,20 @@ def get_user_performance(username):
                                              reverse=True)
                         standing = next((i + 1 for i, r in enumerate(sorted_rosters) 
                                       if r['roster_id'] == user_roster['roster_id']), None)
+                        
+                        # Check if user is champion - only for completed seasons
+                        is_champion = False
+                        # More defensive championship check
+                        try:
+                            if (league_data and 
+                                isinstance(league_data, dict) and 
+                                league_data.get('status') == 'complete' and 
+                                isinstance(league_data.get('metadata'), dict)):
+                                winner_roster_id = league_data.get('metadata', {}).get('latest_league_winner_roster_id')
+                                if winner_roster_id:
+                                    is_champion = str(user_roster['roster_id']) == str(winner_roster_id)
+                        except:
+                            is_champion = False
                         
                         # Calculate various achievements
                         total_teams = len(rosters)
@@ -61,8 +80,12 @@ def get_user_performance(username):
                             'Is Last': is_last,
                             'In Top 6': in_top_6,
                             'In Bottom 4': in_bottom_4,
+                            'Is Champion': is_champion,
                             'league_id': league_id
                         })
+                except Exception as e:
+                    st.warning(f"Error processing league for season {season}: {str(e)}")
+                    continue
     
     return pd.DataFrame(performance_data)
 
