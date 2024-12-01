@@ -249,7 +249,7 @@ if username:
                 
                 if not h2h_df.empty:
                     display_head_to_head_summary(username, selected_manager_name, h2h_df)
-                    display_matchup_table(h2h_df, username, selected_manager_name)
+                    #display_matchup_table(h2h_df, username, selected_manager_name)
                 else:
                     st.warning(f"No head-to-head matchups found with {selected_manager_name}")
     else:

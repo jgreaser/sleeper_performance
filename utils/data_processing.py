@@ -1,5 +1,34 @@
 import pandas as pd
+from .api import get_rosters, get_league_winner
 
+def process_league_data(user_id, leagues_data):
+    """Process league data to include championship information"""
+    league_results = []
+    
+    for league in leagues_data:
+        league_id = league['league_id']
+        user_roster = None
+        rosters = get_rosters(league_id)
+        
+        if rosters:
+            user_roster = next((r for r in rosters if r['owner_id'] == user_id), None)
+        
+        if user_roster:
+            winner_id = get_league_winner(league_id)
+            is_champion = winner_id == user_id if winner_id else False
+            
+            league_results.append({
+                'Season': league['season'],
+                'League': league['name'],
+                'Total Teams': len(rosters),
+                'Standing': user_roster['settings']['rank'],
+                'Points': user_roster['settings'].get('fpts', 0),
+                'Is Champion': is_champion,
+                # ... other fields ...
+            })
+    
+    return pd.DataFrame(league_results)
+    
 def create_users_df(users, rosters):
     return pd.DataFrame([{
         'Display Name': user['display_name'],

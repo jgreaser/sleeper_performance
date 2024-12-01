@@ -11,7 +11,7 @@ st.set_page_config(layout="wide", page_title="Fantasy Football Dashboard")
 st.title("Sleeper Fantasy Football Dashboard")
 
 # Username input section
-st.header("NOT HERE")
+st.header("NOTttt HERE")
 username = st.text_input("Enter your Sleeper username:", key="username_input")
 
 if username:

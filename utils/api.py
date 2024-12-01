@@ -59,8 +59,27 @@ def get_playoff_bracket(league_id):
     response = requests.get(f"https://api.sleeper.app/v1/league/{league_id}/winners_bracket")
     return response.json() if response.status_code == 200 else None
 
-
-    # Add this function to api.py
+def get_league_winner(league_id):
+    """Get the winner of a league by checking league metadata"""
+    # Get league data
+    league_data = get_league_data(league_id)
+    
+    if league_data and 'metadata' in league_data:
+        # Check if there's a winner roster ID in metadata
+        winner_roster_id = league_data['metadata'].get('latest_league_winner_roster_id')
+        
+        if winner_roster_id:
+            # Get rosters to match the winner roster ID to owner
+            rosters = get_rosters(league_id)
+            if rosters:
+                winner_roster = next(
+                    (r for r in rosters if str(r['roster_id']) == str(winner_roster_id)), 
+                    None
+                )
+                if winner_roster:
+                    return winner_roster.get('owner_id')
+    
+    return None
 
 def get_matchups_for_week(league_id, week):
     """Get matchup data for a specific week"""
